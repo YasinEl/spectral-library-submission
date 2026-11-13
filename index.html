@@ -888,26 +888,25 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       aliases: ["yes", "y", "true", "1", "tims", "pasef", "ddapasef", "diapasef", "twims", "hdms", "hdmse", "cyclicims", "dtims", "faims", "dms", "selexion", "slim", "ims", "ionmobility"] },
     { value: "no", label: "no", hint: "", aliases: ["no", "n", "false", "0", "none", "noionmobility", "noionmobilityfiltering", "noim", "noims"] },
   ];
-  const REPLICATE_TYPE_CHOICES = [
-    { value: "single injection", label: "single injection", hint: "no replicates", aliases: ["singleinjection", "single", "one", "1", "none", "noreplicates"] },
-    { value: "injections, same day", label: "injections on the same day", hint: "repeatability",
-      aliases: ["injectionssameday", "injectionsonthesameday", "sameday", "withinday", "intraday", "repeatability", "sameday injections", "samerun", "samebatch"] },
-    { value: "injections, different days", label: "injections on different days", hint: "intermediate precision, includes recalibration",
-      aliases: ["injectionsdifferentdays", "injectionsondifferentdays", "differentdays", "interday", "betweendays", "intermediateprecision", "multipledays"] },
-  ];
+  // When the mobility calibration behind the CCS was measured, relative to the sample run.
   const CALIBRATION_TIMING_CHOICES = [
-    { value: "same run", label: "in the same run", hint: "calibrant measured within the injection (e.g. Bruker calibration segment)",
-      aliases: ["samerun", "inthesamerun", "sameinjection", "inrun", "internal", "calibrationsegment", "automatic", "perrun", "perinjection"] },
-    { value: "same day or batch", label: "same day or batch", hint: "calibration measured in the same sequence",
-      aliases: ["samedayorbatch", "sameday", "samebatch", "samesequence", "daily", "batch"] },
-    { value: "older", label: "older calibration", hint: "e.g. weekly or from an earlier sequence",
-      aliases: ["older", "oldercalibration", "weekly", "previous", "earlier", "monthly"] },
+    { value: "internal", label: "internal: calibrant in every run",
+      hint: "calibrant measured within each sample run, e.g. Bruker TIMS calibration segment or co-infused calibrant",
+      aliases: ["internal", "internalcalibrantineveryrun", "internalcalibration", "samerun", "inthesamerun", "sameinjection", "inrun",
+        "everyrun", "eachrun", "perrun", "perinjection", "calibrationsegment", "coinfused", "coinfusion", "automatic"] },
+    { value: "external, same day", label: "external: same day",
+      hint: "separate calibration run on the day of the measurement, before or within the sequence",
+      aliases: ["externalsameday", "sameday", "samedayorbatch", "samebatch", "samesequence", "insequence", "daily", "batch", "beforesequence"] },
+    { value: "external, earlier", label: "external: an earlier day",
+      hint: "calibration from a previous day, e.g. weekly or stored calibration",
+      aliases: ["externalearlier", "externalanearlierday", "earlier", "anearlierday", "older", "oldercalibration", "weekly", "monthly",
+        "previous", "previousday", "stored", "storedcalibration"] },
   ];
   const CHOICES = { separation_method: SEPARATION_CHOICES, im_filtering: IM_FILTER_CHOICES,  collision_energy_unit: UNIT_CHOICES,
     ms_level: MS_LEVEL_CHOICES, spectrum_type: SPECTRUM_TYPE_CHOICES, collision_gas: GAS_CHOICES, spectrum_origin: ORIGIN_CHOICES,
     derivatized: DERIVATIZED_CHOICES, sample_source: SAMPLE_SOURCE_CHOICES,
     im_technique: IM_TECHNIQUE_CHOICES, drift_gas: DRIFT_GAS_CHOICES, im_calibrant_gas: DRIFT_GAS_CHOICES,
-    im_replicate_type: REPLICATE_TYPE_CHOICES, im_calibration_timing: CALIBRATION_TIMING_CHOICES };
+    im_calibration_timing: CALIBRATION_TIMING_CHOICES };
 
   // A number with a unit, e.g. "3.5 kV", "300 °C", "5 ppm", "800 L/h". `units` maps
   // norm()-ed spellings to the canonical unit; `defaultUnit` applies when none is written.
@@ -1168,18 +1167,14 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       keys: ["IM_CALIBRANT_GAS", "CALIBRANT_GAS", "CCS_CALIBRANT_GAS", "CALIBRANT_REFERENCE_GAS", "CALIBRATION_GAS"],
       help: "Only when the spectrum has a CCS value. Only for TWIMS and cyclic IMS: the drift gas in which the calibrants' reference CCS values were measured. Calibrating with helium reference values for a nitrogen measurement is a known source of error." },
     { id: "im_calibration_timing", label: "IM calibration timing", ask: true, kind: "choice", requiredWith: "im",
-      placeholder: "in the same run, same day or batch, older calibration",
+      placeholder: "internal: calibrant in every run, external: same day, external: an earlier day",
       keys: ["IM_CALIBRATION_TIMING", "CCS_CALIBRATION_TIMING", "IM_CALIBRATION", "CALIBRATION_TIMING", "MOBILITY_CALIBRATION"],
-      help: "Only when the spectrum has a CCS value. When the ion mobility calibration used for these CCS values was done. In the same run means a calibrant measured within the injection (e.g. a Bruker calibration segment). Not needed for stepped-field DTIMS." },
-    { id: "im_replicate_type", label: "IM replicate type", ask: true, kind: "choice", requiredWith: "im",
-      placeholder: "single injection, injections on the same day, injections on different days",
-      keys: ["IM_REPLICATE_TYPE", "CCS_REPLICATE_TYPE", "REPLICATE_TYPE"],
-      help: "What the replicates are. Only separate injections (or infusions) count; scans within one LC peak are not replicates." },
-    { id: "im_replicates", label: "IM replicates", ask: true, kind: "count", requiredWith: "im", placeholder: "e.g. 3",
-      keys: ["IM_REPLICATES", "CCS_REPLICATES", "MOBILITY_REPLICATES"], help: "Number of injections the CCS values are based on." },
+      help: "Only when the spectrum has a CCS value. When the ion mobility calibration behind these CCS values was measured: internal (calibrant in every run, e.g. a Bruker calibration segment), external on the same day, or external on an earlier day. Not needed for stepped-field DTIMS." },
+    { id: "im_replicates", label: "IM injections", ask: true, kind: "count", requiredWith: "im", placeholder: "e.g. 3",
+      keys: ["IM_REPLICATES", "CCS_REPLICATES", "MOBILITY_REPLICATES"], help: "Only when the spectrum has a CCS value. Number of separate injections (or infusions) the CCS value is based on; scans within one LC peak count as one. The RSD is asked from 2 on." },
     { id: "im_rsd", label: "CCS replicate RSD (%)", ask: true, kind: "percent", requiredWith: "im", placeholder: "e.g. 0.4",
       keys: ["IM_RSD", "CCS_RSD", "CCS_PRECISION", "IM_PRECISION", "CCS_REPEATABILITY", "CCS_RSD_PERCENT"],
-      help: "Relative standard deviation of the CCS across the replicate injections, in %." },
+      help: "Only when the spectrum has a CCS value from 2 or more injections. Relative standard deviation of the CCS across the injections, in %." },
     { id: "ccs", label: "CCS (Å²)", kind: "ccs", allowNone: true, optional: true, im: true,   // per spectrum, from the file only
       keys: ["CCS", "COLLISIONAL_CROSS_SECTION", "COLLISION_CROSS_SECTION", "CCS_A2", "CCS_ANGSTROM2"],
       help: "One or more values, comma-separated when the adduct gives several mobility peaks (189.6, 195.2). Any mobility value triggers the IM questions." },
@@ -1597,7 +1592,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       resolution: "RESOLUTION", fragment_mass_accuracy: "FRAGMENT_MASS_ACCURACY", collision_gas: "COLLISION_GAS",
       fragment_scan_range: "FRAGMENT_SCAN_RANGE", ccs: "CCS",
       im_technique: "IM_TECHNIQUE", drift_gas: "DRIFT_GAS", im_calibrant: "IM_CALIBRANT", im_calibrant_gas: "IM_CALIBRANT_GAS", im_calibration_timing: "IM_CALIBRATION_TIMING",
-      im_replicate_type: "IM_REPLICATE_TYPE", im_replicates: "IM_REPLICATES", im_rsd: "IM_RSD" },
+      im_replicates: "IM_REPLICATES", im_rsd: "IM_RSD" },
     msp: { name: "Name", smiles: "SMILES", inchi: "InChI", adduct: "Precursor_type", precursor_mz: "PrecursorMZ", charge: "Charge",
       instrument_type: "Instrument", ms1_analyzer: "MS1_analyzer", mass_analyzer: "Mass_analyzer", ionization: "Ionization",
       fragmentation_method: "Fragmentation_method", irradiation_time: "Irradiation_time", laser_wavelength: "Laser_wavelength", laser_energy: "Laser_energy", collision_energy: "Collision_energy", collision_energy_unit: "Collision_energy_unit",
@@ -1606,7 +1601,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       resolution: "Resolution", fragment_mass_accuracy: "Fragment_mass_accuracy", collision_gas: "Collision_gas",
       fragment_scan_range: "Fragment_scan_range", ccs: "CCS",
       im_technique: "IM_technique", drift_gas: "Drift_gas", im_calibrant: "IM_calibrant", im_calibrant_gas: "IM_calibrant_gas", im_calibration_timing: "IM_calibration_timing",
-      im_replicate_type: "IM_replicate_type", im_replicates: "IM_replicates", im_rsd: "IM_RSD" },
+      im_replicates: "IM_replicates", im_rsd: "IM_RSD" },
   };
   const fmtNum = (x) => String(+Number(x).toFixed(6));
 
@@ -1692,10 +1687,9 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       const i = inst();
       if (i.status === "ok" && F().imTechniqueForInstrument(i.value)) return "derived";
     }
-    if (id === "im_replicates" || id === "im_rsd") {   // a single injection has no replicate spread
-      const rt = effective(sp, "im_replicate_type", supplied);
-      if (rt.status === "ok" && rt.value === "single injection") return false;
-      if (id === "im_rsd") { const n = effective(sp, "im_replicates", supplied); if (n.status === "ok" && n.value < 2) return false; }
+    if (id === "im_rsd") {   // a single injection has no spread
+      const n = effective(sp, "im_replicates", supplied);
+      if (n.status === "ok" && n.value < 2) return false;
     }
     if (id === "im_calibrant" || id === "im_calibrant_gas" || id === "im_calibration_timing") {
       let t = effective(sp, "im_technique", supplied);
@@ -1882,11 +1876,6 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       res.warnings.push("an underivatized structure is given but Derivatized is no; it is ignored");
     }
 
-    // replicate injections with a count of one: allowed, but pointed out
-    const rt = res.values.im_replicate_type, rn = res.values.im_replicates;
-    if (rt && rt.value !== "single injection" && rn && rn.value < 2) {
-      res.warnings.push(`IM replicate type is "${rt.display}" but the number of replicates is ${rn.value}; no RSD is asked`);
-    }
 
     // CCS calibrated with reference values from another gas
     const cg = res.values.im_calibrant_gas, dg = res.values.drift_gas;
@@ -1995,8 +1984,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
         im_technique: "TIMS",
         drift_gas: "N2",
         im_calibrant: "Agilent ESI tune mix",
-        im_calibration_timing: "in the same run",
-        im_replicate_type: "injections on the same day",
+        im_calibration_timing: "internal: calibrant in every run",
         im_replicates: "3",
         im_rsd: "0.4",
         ms_level: "MS2",
@@ -2230,8 +2218,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     im_technique: "TIMS",
     drift_gas: "N2",
     im_calibrant: "Agilent ESI tune mix",
-    im_calibration_timing: "in the same run",
-    im_replicate_type: "injections on the same day",
+    im_calibration_timing: "internal: calibrant in every run",
     im_replicates: "3",
     im_rsd: "0.4",
   };
@@ -2733,8 +2720,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
           calibrant: v.im_calibrant ? v.im_calibrant.value : null,   // null for stepped-field DTIMS
           calibrant_reference_gas: v.im_calibrant_gas ? v.im_calibrant_gas.value : null,   // TWIMS / cyclic IMS only
           calibration_timing: v.im_calibration_timing ? v.im_calibration_timing.value : null,   // null for stepped-field DTIMS
-          replicate_type: v.im_replicate_type ? v.im_replicate_type.value : null,
-          replicates: v.im_replicate_type && v.im_replicate_type.value === "single injection" ? 1 : v.im_replicates ? v.im_replicates.value : null,
+          injections: v.im_replicates ? v.im_replicates.value : null,
           replicate_rsd_percent: v.im_rsd ? v.im_rsd.value : null,
         };
         out.supplied_on_page = Object.keys(v).filter((id) => v[id].from === "dashboard");
