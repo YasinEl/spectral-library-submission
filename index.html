@@ -880,10 +880,12 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     { value: "other", label: "other", hint: "e.g. SLIM", aliases: ["other", "slim"] },
   ];
   const DRIFT_GAS_CHOICES = [
-    { value: "N2", label: "N2 (nitrogen)", hint: "most common", aliases: ["n2", "nitrogen"] },
-    { value: "He", label: "He (helium)", hint: "", aliases: ["he", "helium"] },
-    { value: "CO2", label: "CO2", hint: "", aliases: ["co2", "carbondioxide"] },
-    { value: "other", label: "other", hint: "", aliases: ["other", "air", "ar", "argon"] },
+    { value: "N2", label: "N2 (nitrogen)", hint: "standard for small molecules", aliases: ["n2", "nitrogen"] },
+    { value: "He", label: "He (helium)", hint: "mostly protein work", aliases: ["he", "helium"] },
+    { value: "CO2", label: "CO2 (carbon dioxide)", hint: "", aliases: ["co2", "carbondioxide"] },
+    { value: "Ar", label: "Ar (argon)", hint: "", aliases: ["ar", "argon"] },
+    { value: "SF6", label: "SF6 (sulfur hexafluoride)", hint: "", aliases: ["sf6", "sulfurhexafluoride", "sulphurhexafluoride"] },
+    { value: "other", label: "other", hint: "", aliases: ["other", "air"] },
   ];
   // Ion mobility used only to clean up the MS/MS (like LC): yes / no, no CCS questions follow from it.
   const IM_FILTER_CHOICES = [
@@ -1161,8 +1163,8 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     { id: "im_technique", label: "IM technique", ask: true, kind: "choice", requiredWith: "im", placeholder: "TIMS, TWIMS, DTIMS stepped-field …",
       keys: ["IM_TECHNIQUE", "ION_MOBILITY_TYPE", "IMS_TYPE", "IM_TYPE", "MOBILITY_TECHNIQUE"],
       help: "Only when the spectrum has a CCS value. How the mobility was measured for the CCS. Taken from the instrument when unambiguous (timsTOF → TIMS, Synapt → TWIMS)." },
-    { id: "drift_gas", label: "IM drift gas", ask: true, kind: "choice", requiredWith: "im", placeholder: "N2, He …",
-      keys: ["DRIFT_GAS", "IM_GAS", "MOBILITY_GAS", "BUFFER_GAS"], help: "Only when the spectrum has a CCS value. The gas in the ion mobility cell, which the CCS value refers to." },
+    { id: "drift_gas", label: "IM drift gas", ask: true, kind: "choice", requiredWith: "im", placeholder: "N2, He, CO2, Ar, SF6 …",
+      keys: ["DRIFT_GAS", "IM_GAS", "MOBILITY_GAS", "BUFFER_GAS"], help: "Only when the spectrum has a CCS value. The gas in the ion mobility cell, which the CCS value refers to. N2 is standard for small molecules; He is mostly used for protein work." },
     { id: "im_calibrant", label: "IM calibrant", ask: true, kind: "text", requiredWith: "im", placeholder: "e.g. Agilent ESI tune mix",
       keys: ["IM_CALIBRANT", "CCS_CALIBRANT", "MOBILITY_CALIBRANT"],
       help: "Only when the spectrum has a CCS value. Ion mobility calibrant used to convert to CCS. Not needed for stepped-field DTIMS." },
