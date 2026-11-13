@@ -1059,7 +1059,8 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
   // Field catalogue. `keys` are file header names (compared after norm()).
   // `ask: true` fields can be supplied in the dashboard when missing.
   const FIELDS = [
-    { id: "name", label: "Compound name", keys: ["NAME", "COMPOUND_NAME", "COMPOUNDNAME", "TITLE", "COMPOUND"] },
+    { id: "name", label: "Compound name", keys: ["NAME", "COMPOUND_NAME", "COMPOUNDNAME", "TITLE", "COMPOUND"],
+      help: "Recommended: the ChEBI name of the compound where one exists (look it up at ebi.ac.uk/chebi), e.g. caffeine (CHEBI:27732). The structure, not the name, identifies the compound." },
     { id: "smiles", label: "SMILES", keys: ["SMILES"] },
     { id: "inchi", label: "InChI", keys: ["INCHI"] },
     { id: "adduct", label: "Adduct", keys: ["ADDUCT", "PRECURSOR_TYPE", "PRECURSORTYPE", "ADDUCT_TYPE", "ION_TYPE"],
@@ -1106,7 +1107,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     { id: "im_filtering", label: "Ion mobility filtering", ask: true, optional: true, kind: "choice",
       placeholder: "yes or no",
       keys: ["IM_FILTERING", "ION_MOBILITY_FILTERING", "IM_SEPARATION", "ION_MOBILITY_SEPARATION", "MOBILITY_FILTER", "IMS_FILTER"],
-      help: "Only about the purity of the MS/MS spectrum: was the precursor separated by ion mobility before fragmentation (e.g. PASEF, FAIMS), like LC separation? Can be given with or without a CCS value, and asks nothing more." },
+      help: "Only about the purity of the MS/MS spectrum: was the precursor separated by ion mobility before fragmentation (e.g. PASEF, FAIMS), like LC separation? Set to yes automatically when the spectrum has a CCS value. Asks nothing more." },
     { id: "ms_level", label: "MS level", ask: true, kind: "choice", placeholder: "MS2, MS3 …",
       keys: ["MS_LEVEL", "MSLEVEL", "MS_TYPE", "MSTYPE", "SPECTRUM_LEVEL", "SPECTRUM_TYPE"] },   // NIST MSP: Spectrum_type: MS2
     { id: "spectrum_origin", label: "Spectrum origin", ask: true, kind: "choice", placeholder: "Type to search, e.g. pure analytical standard",
@@ -1680,6 +1681,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       const photo = fr.status === "ok" && F().PHOTODISSOCIATION.has(fr.value);
       if ((f.activation === "photo") !== photo) return false;
     }
+    if (id === "im_filtering" && hasIm(sp)) return "derived";   // a CCS means the precursor went through ion mobility
     const fileMissing = F().resolve(id, sp.raw[id]).status === "missing";
     const inst = () => effective(sp, "instrument_type", supplied);
     if (fileMissing && (id === "mass_analyzer" || id === "ms1_analyzer")) {
@@ -1727,6 +1729,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     if (!hasIm(sp)) {
       for (const f of LSD.fields.FIELDS) if (f.requiredWith === "im") delete gaps[f.id];
     } else {
+      delete gaps.im_filtering;   // set to yes from the CCS
       const inst = LSD.fields.resolve("instrument_type", sp.raw.instrument_type);
       if (gaps.im_technique && gaps.im_technique.status === "missing" && inst.status === "ok" && LSD.fields.imTechniqueForInstrument(inst.value)) delete gaps.im_technique;
       const tech = LSD.fields.resolve("im_technique", sp.raw.im_technique);
@@ -1815,6 +1818,11 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
         continue;
       }
       const fromFile = LSD.fields.resolve(id, sp.raw[id]);
+      if (id === "im_filtering" && rel === "derived" && !(fromFile.status === "ok" && fromFile.value === "yes")) {   // CCS given: yes
+        if (fromFile.status === "ok" && fromFile.value !== "yes") res.warnings.push("Ion mobility filtering is \"no\" in the file, but the spectrum has a CCS value; set to yes");
+        res.values[id] = Object.assign(LSD.fields.resolve(id, "yes"), { from: "CCS" });
+        continue;
+      }
       if (fromFile.status === "ok") { res.values[id] = Object.assign({ from: "file" }, fromFile); continue; }
       const text = rel === "derived" ? null : supplied(id);   // a hidden question's old answer no longer counts
       const r = text == null ? { status: "missing" } : LSD.fields.resolve(id, text);
@@ -2188,7 +2196,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
 
   // One sample value per field (the caffeine example, so every value is valid together).
   const FIELD_EXAMPLES = {
-    name: "Caffeine",
+    name: "caffeine",
     smiles: "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
     inchi: "InChI=1S/C8H10N4O2/c1-10-4-9-6-5(10)7(13)12(3)8(14)11(6)2/h4H,1-3H3",
     adduct: "[M+H]+",
@@ -2232,7 +2240,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
   function allowedValues(f) {
     const F = LSD.fields;
     const fixed = {
-      name: "Free text",
+      name: "Free text; the ChEBI name is recommended (caffeine, CHEBI:27732)",
       adduct: "[nM ± formula …]charge, e.g. [M+H]+, [M-H]-, [2M+Na]+, [M+2H]2+. M is the structure; other parts are molecular formulas (no FA, ACN …)",
       precursor_mz: "Number > 0 (m/z). For MS3 and higher: one per isolation stage, comma-separated",
       instrument_type: `A specific PSI-MS instrument model (${F.options("instrument_type").length} models under MS:1000031), by name, short name (QE) or accession. Categories such as Q-TOF or Orbitrap are refused`,
@@ -2282,7 +2290,8 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       }
       const need = f.ask ? "File, or entered here" : f.id === "name" ? "Optional"
         : f.optional ? "Optional, per spectrum in the file" : "Required in the file";
-      const needText = f.id === "sample_source" ? "Required for biological samples: file, or entered here"
+      const needText = f.id === "im_filtering" ? "Optional: file, or entered here. Yes automatically when a CCS is given"
+        : f.id === "sample_source" ? "Required for biological samples: file, or entered here"
         : f.requiredWith === "biological" ? `Optional, only for biological samples from ${f.sampleSource === "environment" ? "the environment" : "an organism"}: file, or entered here`
         : f.activation === "photo" ? (f.optional ? "Optional, only for UVPD / IRMPD" : "Required for UVPD / IRMPD: file, or entered here")
         : f.activation === "collision" && !f.optional ? "Required, except for UVPD / IRMPD: file, or entered here"
