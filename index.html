@@ -160,7 +160,10 @@ td.bad { color: var(--bad); font-weight: 600; }
 }
 .value-input input { width: min(440px, 100%); }
 .combo { position: relative; width: min(440px, 100%); }
-.combo input { width: 100%; }
+.combo input { width: 100%; padding-right: 30px; }
+.combo-toggle { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--muted); font-size: 1rem; line-height: 1; padding: 6px 8px; cursor: pointer; }
+.combo-toggle:hover { color: var(--ink); }
+.q-allowed { font-size: 0.85rem; max-width: 75ch; margin: 4px 0; }
 .combo-list {
   position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
   margin: 0; padding: 4px; list-style: none; max-height: 280px; overflow-y: auto;
@@ -2177,8 +2180,11 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       else if (e.key === "Enter" && !list.hidden && active >= 0) { e.preventDefault(); choose(shown[active]); }
       else if (e.key === "Escape" && !list.hidden) { e.preventDefault(); e.stopPropagation(); close(); }
     });
+    // visible arrow so the field reads as a dropdown; opens the full list
+    const toggle = el("button", { type: "button", class: "combo-toggle", tabindex: "-1", "aria-label": "Show allowed values",
+      onmousedown: (e) => { e.preventDefault(); if (list.hidden) { input.focus(); render(); } else close(); } }, "▾");
     input.replaceWith(wrap);
-    wrap.append(input, list);
+    wrap.append(input, toggle, list);
     return wrap;
   }
 
@@ -2517,6 +2523,9 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
         el("p", { class: "q-what" }, what,
           invalid.length ? el("span", { class: "muted" }, ` Not recognized in the file: ${invalid.slice(0, 5).map((v) => `“${v}”`).join(", ")}${invalid.length > 5 ? " …" : ""}.`) : null),
         field.help ? el("p", { class: "q-help", text: field.help }) : null,
+        allowedValues(field) ? el("p", { class: "q-allowed" }, el("strong", { text: "Allowed values: " }),
+          el("span", { text: allowedValues(field) }),
+          ["term", "choice", "obo"].includes(field.kind) ? el("span", { class: "muted", text: " (pick from the list, ▾)" }) : null) : null,
         n === 1 ? null : bulk
           ? el("p", { class: "q-bulk", text: `One value for all ${n} spectra. To give different values, add them to the file (header ${field.keys[0]}; see "Required fields and accepted header names" in step 1) and upload it again.` })
           : el("div", { class: "choices", role: "radiogroup", "aria-label": `Is ${field.label.toLowerCase()} the same for these spectra?` },
