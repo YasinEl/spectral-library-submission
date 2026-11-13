@@ -165,7 +165,7 @@ td.bad { color: var(--bad); font-weight: 600; }
 .combo-toggle:hover { color: var(--ink); }
 .q-allowed { font-size: 0.85rem; max-width: 75ch; margin: 4px 0; }
 .combo-list {
-  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+  position: fixed; z-index: 1000;   /* placed by attachCombo at the input */
   margin: 0; padding: 4px; list-style: none; max-height: 280px; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
@@ -2143,7 +2143,20 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     let shown = [], active = -1;
     const LIMIT = 60;
 
-    const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
+    // The list is position: fixed and placed at the input, so no card, table or scroll box can clip or cover it.
+    const place = () => {
+      if (list.hidden) return;
+      const r = input.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom - 8, above = r.top - 8;
+      const up = below < 200 && above > below;
+      const h = Math.max(120, Math.min(320, up ? above : below));
+      Object.assign(list.style, { left: `${r.left}px`, width: `${r.width}px`, maxHeight: `${h}px`,
+        top: up ? "" : `${r.bottom + 4}px`, bottom: up ? `${window.innerHeight - r.top + 4}px` : "" });
+    };
+    const onMove = () => { if (!input.isConnected) { stopTracking(); close(); } else place(); };
+    const startTracking = () => { window.addEventListener("scroll", onMove, true); window.addEventListener("resize", onMove); };
+    const stopTracking = () => { window.removeEventListener("scroll", onMove, true); window.removeEventListener("resize", onMove); };
+    const close = () => { stopTracking(); list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
     const highlight = (i) => {
       active = i;
       [...list.children].forEach((li, j) => li.setAttribute("aria-selected", String(j === i)));
@@ -2169,6 +2182,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       list.hidden = false;
       input.setAttribute("aria-expanded", "true");
       active = -1;
+      place(); startTracking();
     };
     input.addEventListener("focus", render);
     input.addEventListener("click", () => { if (list.hidden) render(); });
