@@ -136,6 +136,7 @@ tbody th { font-weight: 600; white-space: nowrap; }
 .ref-table code { white-space: normal; }
 .ref-table td.ref-example { max-width: 220px; }
 .ref-table td.ref-example code { overflow-wrap: anywhere; }
+.ref-table td.ref-allowed { min-width: 220px; max-width: 360px; }
 td.num { font-family: var(--font-mono); font-size: 0.84rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.mono { white-space: nowrap; }
 td.bad { color: var(--bad); font-weight: 600; }
@@ -2227,12 +2228,46 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
     im_rsd: "0.4",
   };
 
+  // "Allowed values" column of the field reference: what each field accepts, from the field catalogue.
+  function allowedValues(f) {
+    const F = LSD.fields;
+    const fixed = {
+      name: "Free text",
+      adduct: "[nM ± formula …]charge, e.g. [M+H]+, [M-H]-, [2M+Na]+, [M+2H]2+. M is the structure; other parts are molecular formulas (no FA, ACN …)",
+      precursor_mz: "Number > 0 (m/z). For MS3 and higher: one per isolation stage, comma-separated",
+      instrument_type: `A specific PSI-MS instrument model (${F.options("instrument_type").length} models under MS:1000031), by name, short name (QE) or accession. Categories such as Q-TOF or Orbitrap are refused`,
+      collision_energy: "Number, stepped list (20, 40, 60), ramp (10-40) or spread (35 ± 15), optionally with its unit (eV, NCE)",
+      resolution: "Number > 0, optionally with its m/z (60000 at m/z 200), or \"low resolution\"",
+      fragment_scan_range: "m/z range with low < high (50-1000), or one limit: >= 50 or <= 1000",
+      ccs: "One or more numbers > 0 in Å² (MS:1002954), comma-separated for several mobility peaks. Measured values only",
+      im_calibrant: "Free text",
+    };
+    if (fixed[f.id]) return fixed[f.id];
+    const k = f.kind;
+    if (k === "choice") {
+      const C = F.CHOICES[f.id] || [];
+      return C.map((c) => c.accession ? `${c.label} [${c.accession}]` : c.label).join(" · ");
+    }
+    if (k === "term") return F.options(f.id).map((o) => o.value).join(" · ");
+    if (k === "obo") {
+      const what = { organism: "NCBI Taxonomy term with its ID (NCBITaxon:9606)", body_part: "UBERON term with its ID (UBERON:0001969)",
+        environment: "ENVO term with its ID (ENVO:00001998)" }[f.id];
+      return `${what}; common ones also by name (${F.options(f.id).slice(0, 3).map((o) => o.value.replace(/ \[.*$/, "")).join(", ")} …)`;
+    }
+    if (k === "quantity") return `Number > 0 with a unit: ${[...new Set(Object.values(f.units))].join(", ")}`;
+    if (k === "count") return "Whole number ≥ 1";
+    if (k === "percent") return f.allowZero ? "Number ≥ 0 (%)" : "Number > 0 (%)";
+    if (k === "text") return "Free text";
+    return "";
+  }
+
   function buildFieldReference() {
     const rows = LSD.fields.FIELDS.filter((f) => !["charge", "inchi", "underivatized_inchi"].includes(f.id) && !f.reject).map((f) => {
       if (f.id === "underivatized_smiles") {
         const inchi = LSD.fields.BY_ID.underivatized_inchi;
         return el("tr", {}, el("th", { scope: "row", text: "Underivatized structure" }),
           el("td", { text: "Required in the file when Derivatized is yes: SMILES or InChI" }),
+          el("td", { class: "ref-allowed", text: "Valid SMILES or standard InChI (InChI=1S/…)" }),
           el("td", {}, el("code", { text: `${f.keys.join(", ")} or ${inchi.keys.join(", ")}` })),
           el("td", { class: "ref-example" }),
           el("td", { class: "muted", text: "The molecule before derivatization. The main SMILES/InChI, adduct and precursor m/z describe the derivatized molecule that was measured." }));
@@ -2240,6 +2275,7 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
       if (f.id === "smiles") {   // one row: either structure format is enough
         const inchi = LSD.fields.BY_ID.inchi;
         return el("tr", {}, el("th", { scope: "row", text: "Structure" }), el("td", { text: "Required: SMILES or InChI (one is enough)" }),
+          el("td", { class: "ref-allowed", text: "Valid SMILES or standard InChI (InChI=1S/…)" }),
           el("td", {}, el("code", { text: `${f.keys.join(", ")} or ${inchi.keys.join(", ")}` })),
           el("td", { class: "ref-example" }, el("code", { text: FIELD_EXAMPLES.smiles })),
           el("td", { class: "muted", text: "If both are given, they must describe the same compound." }));
@@ -2254,15 +2290,17 @@ globalThis.LSD.ONTOLOGY = {"version":"4.2.15","fields":{"instrument_type":[{"id"
         : f.im ? "Optional, per spectrum in the file (asks the IM questions)"
         : f.ask && f.optional ? "Optional: file, or entered here" : need;
       return el("tr", {}, el("th", { scope: "row", text: f.label }), el("td", { text: needText }),
+        el("td", { class: "ref-allowed", text: allowedValues(f) }),
         el("td", {}, el("code", { text: f.keys.join(", ") })),
         el("td", { class: "ref-example" }, FIELD_EXAMPLES[f.id] ? el("code", { text: FIELD_EXAMPLES[f.id] }) : null),
         el("td", { class: "muted", text: f.help || "" }));
     });
     rows.push(el("tr", {}, el("th", { scope: "row", text: "Peaks" }), el("td", { text: `Required: ≥ ${LSD.validate.MIN_IONS} ions` }),
+      el("td", { class: "ref-allowed", text: `At least ${LSD.validate.MIN_IONS} pairs of m/z > 0 and intensity > 0` }),
       el("td", {}, el("code", { text: "MGF/MSP: one “m/z intensity” per line · JSON: \"peaks\": [[mz, intensity], …]" })),
       el("td", { class: "ref-example" }, el("code", { text: "138.0662 100000" })), el("td")));
     $("field-ref").replaceChildren(
-      el("thead", {}, el("tr", {}, ["Field", "Where from", "Header names (any case)", "Example", "Notes"].map((h) => el("th", { scope: "col", text: h })))),
+      el("thead", {}, el("tr", {}, ["Field", "Where from", "Allowed values", "Header names (any case)", "Example", "Notes"].map((h) => el("th", { scope: "col", text: h })))),
       el("tbody", {}, rows));
   }
 
